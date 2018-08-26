@@ -41,9 +41,7 @@ def getArchiveContent(fileName):
 
 def prepareDb():
     try:
-        print('tworze baze')
         conn = sqlite3.connect("MyDb.db")
-        print(conn)
         c = conn.cursor()
 
         sql_create_Eurostat_table = """ CREATE TABLE IF NOT EXISTS Eurostat (
@@ -78,7 +76,6 @@ if __name__ == "__main__":
      
         buffer = io.StringIO(archiveContent)
         columns = buffer.readline().split(',')  #first line contains columns name
-        print(columns)
         period_index = columns.index('PERIOD')
         declarant_iso_index = columns.index('DECLARANT_ISO')
         trade_type_index = columns.index('TRADE_TYPE')
@@ -89,7 +86,6 @@ if __name__ == "__main__":
         for line in buffer:
             
             valuesList = line.split(',')
-            print(valuesList)
             period = valuesList[period_index]
             if period[-2:] == '52':
                 break # not sure if 52 is a week number, should I add it as December(12)? Now im just ommiting data as for example: '201052''
@@ -97,11 +93,9 @@ if __name__ == "__main__":
             trade_type = valuesList[trade_type_index]
             value = valuesList[value_index]
             insert_sql = f"INSERT INTO Eurostat (PERIOD, DECLARANT_ISO, TRADE_TYPE, VALUE_IN_EUROS) VALUES (\'{period}\', \'{declarant_iso}\', \'{trade_type}\', {value})"
-            print(insert_sql)
             dbCursor.execute(insert_sql)
             if commitCounter >= 1000: #commit to DB each 1000 row (performance)
                 dbConn.commit()
                 commitCounter = 0
-            print(declarant_iso,trade_type,value,period)
             commitCounter += 1
         break
