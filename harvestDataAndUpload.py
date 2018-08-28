@@ -14,7 +14,7 @@ MAIN_URL = 'https://ec.europa.eu/eurostat/estat-navtree-portlet-prod/BulkDownloa
 
 
 PARSE_URL_PATTERN = re.compile("href=[\'\"](https://ec.europa.eu/eurostat/estat-navtree-portlet-prod[^>]*?downfile[^>]*?full[^>]*?7z)[\'\"]>Download")
-
+PARSE_DATE_PATTERN = re.compile("full(\d{6})\.") # 'https://ec.europa.eu/eurostat/estat-navtree-portlet-prod/BulkDownloadListing?sort=1&amp;downfile=comext%2FCOMEXT_DATA%2FPRODUCTS%2Ffull201806.7z'}
 
 dbConnection = None
 
@@ -46,9 +46,9 @@ def prepareDb():
 
         sql_create_Eurostat_table = """ CREATE TABLE IF NOT EXISTS Eurostat (
                                         id integer PRIMARY KEY,
-                                        PERIOD varchar NOT NULL,
-                                        DECLARANT_ISO text NOT NULL,
-                                        TRADE_TYPE text NOT NULL,
+                                        PERIOD VARCHAR(6) NOT NULL,
+                                        DECLARANT_ISO VARCHAR(2) NOT NULL,
+                                        TRADE_TYPE VARCHAR(1) NOT NULL,
                                         VALUE_IN_EUROS integer
 
                                     ); """
@@ -60,16 +60,31 @@ def prepareDb():
     
     return 
 
+
+def extractDates(parsedUrls, minimalVersion=True):
+    dates = {}
+
+    for url in parsedUrls:
+        date = re.findall(PARSE_DATE_PATTERN, url)
+        if date:
+            if minimalVersion and date[0] < '201701':
+                continue
+            else:
+                dates[date[0]] = url.replace("&amp;","&")
+    return dates
+
 if __name__ == "__main__":
     mainPage = getPage(MAIN_URL)
     parsedUrls = set(re.findall(PARSE_URL_PATTERN, mainPage))
+    urlsDict = extractDates(parsedUrls)
 
     dbConn = prepareDb()
     dbCursor = dbConn.cursor()
+    pprint(urlsDict)
+    for key in urlsDict:
+        url = urlsDict[key]
 
-    for url in parsedUrls:
-        url = url.replace("&amp;","&")
-
+        print(url)
         save_file(url, "temp_zip.7z")
         
         archiveContent = getArchiveContent("temp_zip.7z")
@@ -94,8 +109,7 @@ if __name__ == "__main__":
             value = valuesList[value_index]
             insert_sql = f"INSERT INTO Eurostat (PERIOD, DECLARANT_ISO, TRADE_TYPE, VALUE_IN_EUROS) VALUES (\'{period}\', \'{declarant_iso}\', \'{trade_type}\', {value})"
             dbCursor.execute(insert_sql)
-            if commitCounter >= 1000: #commit to DB each 1000 row (performance)
+            if commitCounter >= 10000: #commit to DB each 10000 rows (performance)
                 dbConn.commit()
                 commitCounter = 0
             commitCounter += 1
-        break
