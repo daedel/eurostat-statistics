@@ -1,11 +1,8 @@
 import re
 import requests
 from pprint import pprint
-import csv
 import sqlite3
-import pandas
 import io
-import subprocess
 from urllib.request import urlopen
 import py7zlib
 
